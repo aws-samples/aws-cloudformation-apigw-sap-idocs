@@ -1,7 +1,7 @@
 #! /bin/bash
 CurrDir=$(pwd)
 #rm -rf build
-#mkdir build
+mkdir build
 
 # Compile Lambda
 cd $CurrDir/lambda/apigw-sap-idoc-authorizer
