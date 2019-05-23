@@ -1,0 +1,325 @@
+# /*
+#  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  *
+#  * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+#  * software and associated documentation files (the "Software"), to deal in the Software
+#  * without restriction, including without limitation the rights to use, copy, modify,
+#  * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+#  * permit persons to whom the Software is furnished to do so.
+#  *
+#  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+#  * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+#  * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#  * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#  */
+
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  AWS CloudFormation template to create all artifacts for SAP IDOC adapter using AWS API Gateway
+
+#*************************************************
+# Parameters
+#*************************************************
+Parameters:
+  Environment:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+    Default: sapidoc
+  S3BucketForIDOC:
+    Description: Bucket Name for storing IDOCs. (Will be created by Cloud Formation) 
+    Type: String
+    Default: sapidocs
+  S3BucketForArtifacts:
+    Description: Bucket Name where the artifacts are stored (Should exist before running this CF template)
+    Type: String
+    Default: myartifactsbucket
+  Dummy:
+    Description: Dummy field
+    Type: String
+    Default: Dummy
+
+#*************************************************
+# Resources
+#*************************************************
+Resources:
+  #Create user pool
+  UserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      UserPoolName: !Sub ${Environment}_user_pool
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: "OFF"
+      Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+            RequireUppercase: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+  
+  # Creates a User Pool Client to be used by the pool
+  UserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      ClientName: !Sub ${Environment}_client
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
+  
+  # Create Bucket
+  IDOCBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub ${AWS::AccountId}-${S3BucketForIDOC}
+
+  # Create Lambda Roles
+  LambdaS3AccessRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${Environment}-lambda-s3-access-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+      - PolicyName: !Sub "${Environment}-lambda-s3-access-policy"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - 
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:List*
+            Resource: 
+              - !Sub "arn:aws:s3:::${AWS::AccountId}-${S3BucketForIDOC}/*"
+              - !Sub "arn:aws:s3:::${AWS::AccountId}-${S3BucketForIDOC}"
+
+  LambdaAuthorizerRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${Environment}-lambda-authorizer-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+      - PolicyName: !Sub "${Environment}-lambda-authorizer-cognito-policy"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - 
+            Effect: Allow
+            Action:
+              - cognito-idp:AdminInitiateAuth
+            Resource: 
+              - !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}"
+
+  # Create Lambda Functions
+  LambdaAuthorizerFunction:
+     Type: "AWS::Lambda::Function"
+     Properties:
+      FunctionName: "apigw-sap-idoc-authorizer"
+      Description: "Lambda function to authorize calls from SAP RFC destination"
+      Handler: "index.handler"
+      Runtime: "nodejs8.10"
+      Timeout: 120
+      Role: !GetAtt LambdaAuthorizerRole.Arn
+      MemorySize: 512
+      Code:
+          S3Bucket: !Ref S3BucketForArtifacts
+          S3Key: "apigw-sap-idoc-authorizer.zip"
+
+  LambdaS3AccessFunction:
+     Type: "AWS::Lambda::Function"
+     Properties:
+      FunctionName: "apigw-sap-idoc-s3"
+      Description: "Lambda function to upload IDOC data to S3"
+      Handler: "index.handler"
+      Runtime: "nodejs8.10"
+      Timeout: 120
+      Role: !GetAtt LambdaS3AccessRole.Arn
+      MemorySize: 512
+      Code:
+          S3Bucket: !Ref S3BucketForArtifacts
+          S3Key: "apigw-sap-idoc-s3.zip"
+  
+  # Create API
+  IDOCAdapterAPI:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: sap-idoc-adapter-api
+        Description: SAP IDOC adapter API
+        EndpointConfiguration:
+          Types:
+            - REGIONAL
+
+  AdapterGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.WWW-Authenticate: "'Basic'"
+      ResponseTemplates:
+        application/json: '{"message":$context.error.messageString}'
+      ResponseType: UNAUTHORIZED
+      RestApiId: !Ref IDOCAdapterAPI
+      StatusCode: '401'
+
+  IDOCAdapterLambdaAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: "IDOC_Adapter_Authorizer"
+      Type: REQUEST
+      AuthorizerResultTtlInSeconds: 0
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaAuthorizerFunction.Arn}/invocations
+      RestApiId: !Ref IDOCAdapterAPI
+      IdentitySource: "method.request.header.Authorization"
+
+  # Create a mock GET method for the IDOCAdapterAPI
+  IDOCMockGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref IDOCAdapterAPI
+      ResourceId: !GetAtt IDOCAdapterAPI.RootResourceId
+      HttpMethod: GET
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref IDOCAdapterLambdaAuthorizer
+      Integration:
+          Type: MOCK
+          PassthroughBehavior: WHEN_NO_MATCH
+          IntegrationResponses:
+          - ResponseTemplates:
+              application/json: '{"statusCode": 200,"message:": "IDOC Adapter Connection Works!"}'
+            StatusCode: '200'
+          RequestTemplates:
+            application/json: '{"statusCode": 200}'
+      MethodResponses:
+            - ResponseModels:
+                application/json: Empty
+              StatusCode: '200'
+
+  # Create Method Post for the IDOCAdapterAPI
+  IDOCDataPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref IDOCAdapterAPI
+      ResourceId: !GetAtt IDOCAdapterAPI.RootResourceId
+      HttpMethod: POST
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref IDOCAdapterLambdaAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaS3AccessFunction.Arn}/invocations
+      MethodResponses:
+        - 
+          StatusCode: "200"
+          ResponseModels:
+            application/json: Empty
+
+  AuthorizerLambdaAccess:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaAuthorizerFunction.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${IDOCAdapterAPI}/authorizers/${IDOCAdapterLambdaAuthorizer}
+
+  S3LambdaAccess:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaS3AccessFunction.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${IDOCAdapterAPI}/*/*/*
+  
+  #Deploy the API
+  IDOCAdapterDeployment:
+    DependsOn: IDOCDataPost
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:  !Ref IDOCAdapterAPI
+      Description: "Default deployment"
+      StageName: "dev"
+
+   #Stage variables
+  IDOCAdapterLatestStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: "latest"
+      Description: "Latest deployment"
+      RestApiId: !Ref IDOCAdapterAPI
+      DeploymentId: !Ref IDOCAdapterDeployment
+#*************************************************
+# Outputs
+#*************************************************
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+    Description: User Pool ID
+  UserPoolArn:
+    Value: !GetAtt UserPool.Arn
+    Description: User Pool ID Arn
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+    Description: User Pool App client ID
+  LambdaAuthorizerRoleARN:
+    Value: !GetAtt LambdaAuthorizerRole.Arn
+    Description: ARN of the Authorizer Role
+  LambdaAuthorizerFunctionARN:
+    Value: !GetAtt LambdaAuthorizerFunction.Arn
+    Description: ARN of Lambda Authorizer Function
+  LambdaS3AccessRoleARN:
+    Value: !GetAtt LambdaS3AccessRole.Arn
+    Description: ARN of the Authorizer Role
+  LambdaS3AccessFunctionARN:
+    Value: !GetAtt LambdaS3AccessFunction.Arn
+    Description: ARN of Lambda Authorizer Function
+  IDOCAdapterHost:
+    Value: !Join
+    - ""
+    - - !Ref IDOCAdapterAPI
+      - ".execute-api."
+      - !Ref AWS::Region
+      - ".amazonaws.com"
+    Description: IDOC Adatper Target Host for SM59 in SAP
+  IDOCAdapterPrefix:
+    Value: !Join
+    - ""
+    - - "/latest?"
+      - "upid="
+      - !Ref UserPool
+      - "&cid="
+      - !Ref UserPoolClient
+      - "&bn="
+      - !Ref IDOCBucket
+    Description: IDOC Adatper Path prefix for SM59 in SAP
