@@ -61,7 +61,7 @@ exports.handler = function(event, context, callback) {
                 // Valid token received, so all good
                 callback(null, allow('me', event.methodArn)) 
             }else{
-                // Cognito auth faile, so may be Access key and secret key were provided
+                // Cognito auth failed, so may be Access key and secret key were provided
                 credentials(authData).then(credData=>{
                   if(credData.success){
                     //Credentials were successful

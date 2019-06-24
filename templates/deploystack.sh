@@ -24,13 +24,23 @@
 # For Cognito User information
 : ${USERNAME:=sapidocs} # Cognito user name to be created
 : ${TMPPASS:=Initpass1} # Temporary password when creating the user
-: ${PASSWORD:=Pass1234} # Updated password for the user
 : ${EMAILID:=saponaws@example.com} # email ID for the user
 
 # -- ****************************************** -- #
 # -- DONOT CHANGE ANYTHING BELOW THIS LINE -- #
 # -- ****************************************** -- #
+lb=`echo $'\n.'`
+lb=${lb%.}
+: ${PASSWORD:=} 
 
+if [ -z "$PASSWORD" ]
+then
+    read -s -p "Enter Password for the Cognito User: $lb" PASSWORD
+    read -s -p "Re-enter Password: $lb" PASSWORD1
+    while [ "$PASSWORD" != "$PASSWORD1" ]; do 
+        read -s -p "Password didn't match, enter again: $lb" PASSWORD1
+    done
+fi
 # Create artifacts bucket
 aws s3api create-bucket --bucket $S3BucketForArtifacts
 # Upload artifacts to the bucket
