@@ -20,7 +20,7 @@
 : ${StackName:=apigwsapidocadapter}
 : ${Environment:=sapidoc}
 : ${S3BucketForIDOC:=sapidocs} # will be created in this script; will append account id to the bucket name
-: ${S3BucketForArtifacts:=idocadapter_artifacts} # will be created in this scriptt
+: ${S3BucketForArtifacts:=idocadapterartifacts} # will be created in this scriptt
 # For Cognito User information
 : ${USERNAME:=sapidocs} # Cognito user name to be created
 : ${TMPPASS:=Initpass1} # Temporary password when creating the user
@@ -42,7 +42,9 @@ then
     done
 fi
 # Create artifacts bucket
-aws s3api create-bucket --bucket $S3BucketForArtifacts
+#aws s3api create-bucket --bucket $S3BucketForArtifacts
+# to solve illegal constraint issu
+aws s3 mb s3://$S3BucketForArtifacts
 # Upload artifacts to the bucket
 aws s3 cp . s3://$S3BucketForArtifacts --recursive
 
