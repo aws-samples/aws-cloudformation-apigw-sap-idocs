@@ -1,6 +1,6 @@
 ## AWS Cloudformation Apigw Sap Idocs
 
-This repository contains sample Lambda functions and a Cloud Formation template to create AWS artifacts for integrating SAP IDOCs with AWS services like Amazon S3 using API Gateway.
+This repository contains sample code as well as an AWS CloudFormation template to integrate SAP IDocs with Amazon S3 using Amazon API Gateway.
 
 Check out [SAP IDoc integration with Amazon S3 by using Amazon API Gateway](https://aws.amazon.com/blogs/awsforsap/sap-idoc-integration-with-amazon-s3-by-using-amazon-api-gateway/) for more information on how to use this in your landscape. 
 
