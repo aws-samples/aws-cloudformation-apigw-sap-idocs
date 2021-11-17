@@ -20,7 +20,7 @@
 : ${StackName:=apigwsapidocadapter}
 : ${Environment:=sapidoc}
 : ${S3BucketForIDOC:=sapidocs} # will be created in this script; will append account id to the bucket name
-: ${S3BucketForArtifacts:=idocadapterartifacts} # will be created in this scriptt
+: ${S3BucketForArtifacts:=idocadapterartifacts} # will be created in this script; will append account id to the bucket name
 # For Cognito User information
 : ${USERNAME:=sapidocs} # Cognito user name to be created
 : ${TMPPASS:=Initpass1} # Temporary password when creating the user
@@ -41,12 +41,11 @@ then
         read -s -p "Password didn't match, enter again: $lb" PASSWORD1
     done
 fi
-# Create artifacts bucket
-#aws s3api create-bucket --bucket $S3BucketForArtifacts
-# to solve illegal constraint issu
-aws s3 mb s3://$S3BucketForArtifacts
+# Create unique S3 bucket for artifacts
+accountid=$(aws sts get-caller-identity --query Account --output text)
+aws s3 mb s3://$accountid-$S3BucketForArtifacts
 # Upload artifacts to the bucket
-aws s3 cp . s3://$S3BucketForArtifacts --recursive
+aws s3 cp . s3://$accountid-$S3BucketForArtifacts --recursive
 
 TEMPLATE=./APIGatewaySAPIDOCAdapter.yml
 
@@ -57,7 +56,7 @@ aws cloudformation deploy \
 --parameter-overrides \
 Environment=$Environment  \
 S3BucketForIDOC=$S3BucketForIDOC  \
-S3BucketForArtifacts=$S3BucketForArtifacts  
+S3BucketForArtifacts=$accountid-$S3BucketForArtifacts  
 
 USERPOOLID=$(aws cloudformation describe-stacks \
     --stack-name $StackName \
