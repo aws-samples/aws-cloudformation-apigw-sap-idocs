@@ -4,7 +4,7 @@ This repository contains sample code as well as an AWS CloudFormation template t
 
 Check out [SAP IDoc integration with Amazon S3 by using Amazon API Gateway](https://aws.amazon.com/blogs/awsforsap/sap-idoc-integration-with-amazon-s3-by-using-amazon-api-gateway/) for more information on how to use this in your landscape. 
 
-## Quick Deployment
+### Quick Deployment
 
 Clone/download files and execute the following commands
 
@@ -16,6 +16,6 @@ $ chmod +x deploystack.sh
 $ ./deploystack.sh
 ```
 
-## License Summary
+### License Summary
 
 This sample code is made available under a modified MIT license. See the LICENSE file.
