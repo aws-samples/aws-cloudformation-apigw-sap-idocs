@@ -15,7 +15,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-var AWS = require("aws-sdk") 
+var AWS = require("aws-sdk")
 
 exports.handler = function(event, context, callback) {        
     
@@ -35,23 +35,34 @@ exports.handler = function(event, context, callback) {
             console.log("File name is obtained from event.requestContext.requestId is empty",rc) 
             callback(getResponse(400,"File name cannot be empty. File name is obtained from event.requestContext.requestId. Hence can't store the data to S3"),null) 
         }
-        var params = {Bucket: qp.bn, Key: rc.requestId, Body: event.body, ContentType:"text/xml"} 
-        var options = {} 
-        var s3 = new AWS.S3() 
-        s3.upload(params, options, function(err, data) {
-            if(err){
-                console.log("Error in uploading data to S3", err) 
-                callback(getResponse(400,JSON.stringify(err)),null) 
-            }else{
-                console.log("File successfully loaded", data)
-                callback(null,getResponse(200,JSON.stringify(data))) 
-            }
-        }) 
+        
+        var s3key = rc.requestId;
+        var result = event.body;
+        console.log(result);
+        
+        storeItem(qp, callback, s3key, result);
         
     }catch(e){
         console.log("Lambda Execution Error", e) 
         callback(getResponse(400,JSON.stringify(e)),null) 
     }
+}
+
+function storeItem(qp, callback, s3key, result){
+   
+    var params = {Bucket: qp.bn, Key: s3key, Body: result, ContentType:"text/xml"}
+
+    var options = {} 
+    var s3 = new AWS.S3() 
+    s3.upload(params, options, function(err, data) {
+        if(err){
+            console.log("Error in uploading data to S3", err) 
+            callback(getResponse(400,JSON.stringify(err)),null) 
+        }else{
+            console.log("File successfully loaded", data)
+            callback(null,getResponse(200,JSON.stringify(data))) 
+        }
+    }) 
 }
 
 function getResponse(responseCode, message){
