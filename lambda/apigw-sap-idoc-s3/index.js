@@ -38,9 +38,9 @@ exports.handler = function(event, context, callback) {
         
         var s3key = rc.requestId;
         var result = event.body;
-        console.log(result);
+        console.log(result); //XML
         
-        storeItem(qp, callback, s3key, result);
+        storeItem(qp, callback, s3key, result, "text/xml");
         
     }catch(e){
         console.log("Lambda Execution Error", e) 
@@ -48,9 +48,9 @@ exports.handler = function(event, context, callback) {
     }
 }
 
-function storeItem(qp, callback, s3key, result){
-   
-    var params = {Bucket: qp.bn, Key: s3key, Body: result, ContentType:"text/xml"}
+function storeItem(qp, callback, s3key, body, contentType){
+
+    var params = {Bucket: qp.bn, Key: s3key, Body: body, ContentType: contentType}
 
     var options = {} 
     var s3 = new AWS.S3() 
