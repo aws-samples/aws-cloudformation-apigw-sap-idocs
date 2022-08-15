@@ -151,7 +151,7 @@ Resources:
       FunctionName: "apigw-sap-idoc-authorizer"
       Description: "Lambda function to authorize calls from SAP RFC destination"
       Handler: "index.handler"
-      Runtime: "nodejs14.x"
+      Runtime: "nodejs16.x"
       Timeout: 120
       Role: !GetAtt LambdaAuthorizerRole.Arn
       MemorySize: 512
@@ -165,7 +165,7 @@ Resources:
       FunctionName: "apigw-sap-idoc-s3"
       Description: "Lambda function to upload IDOC data to S3"
       Handler: "index.handler"
-      Runtime: "nodejs14.x"
+      Runtime: "nodejs16.x"
       Timeout: 120
       Role: !GetAtt LambdaS3AccessRole.Arn
       MemorySize: 512
