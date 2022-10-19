@@ -30,6 +30,8 @@
 # -- DONOT CHANGE ANYTHING BELOW THIS LINE -- #
 # -- ****************************************** -- #
 
+echo "Start Deployment"
+
 if [ -z "$1" ]
 then
 PASSWORD=$TMPPASS
@@ -37,14 +39,8 @@ else
 PASSWORD=$1
 fi
 
-if [ -z "$PASSWORD" ]
-then
-    read -s -p "Enter Password for the Cognito User: $lb" PASSWORD
-    read -s -p "Re-enter Password: $lb" PASSWORD1
-    while [ "$PASSWORD" != "$PASSWORD1" ]; do 
-        read -s -p "Password didn't match, enter again: $lb" PASSWORD1
-    done
-fi
+echo "Using Pasword:" $PASSWORD
+
 # Create unique S3 bucket for artifacts
 accountid=$(aws sts get-caller-identity --query Account --output text)
 aws s3 mb s3://$accountid-$S3BucketForArtifacts
