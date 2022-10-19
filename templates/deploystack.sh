@@ -29,9 +29,13 @@
 # -- ****************************************** -- #
 # -- DONOT CHANGE ANYTHING BELOW THIS LINE -- #
 # -- ****************************************** -- #
-lb=`echo $'\n.'`
-lb=${lb%.}
-: ${PASSWORD:=} 
+
+if [ -z "$1" ]
+then
+PASSWORD=$TMPPASS
+else
+PASSWORD=$1
+fi
 
 if [ -z "$PASSWORD" ]
 then
