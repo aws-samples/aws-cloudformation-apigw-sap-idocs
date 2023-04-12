@@ -39,7 +39,7 @@ else
 PASSWORD=$1
 fi
 
-echo "Using Pasword:" $PASSWORD
+echo "Using Password:" $PASSWORD
 
 # Create unique S3 bucket for artifacts
 accountid=$(aws sts get-caller-identity --query Account --output text)
